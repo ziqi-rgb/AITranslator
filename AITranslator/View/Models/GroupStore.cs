@@ -35,13 +35,54 @@ namespace AITranslator.View.Models
         }
 
         /// <summary>
+        /// 分组备份文件保留数量
+        /// </summary>
+        const int GroupsBackupKeep = 10;
+
+        /// <summary>
         /// 将分组元数据保存到磁盘
         /// </summary>
         public static void Save(GroupsFile groups)
         {
             if (!Directory.Exists(PublicParams.TranslatedDataDic))
                 Directory.CreateDirectory(PublicParams.TranslatedDataDic);
+
+            BackupCurrent();
+
             JsonPersister.Save(groups, GroupsPath);
+        }
+
+        /// <summary>
+        /// 写盘前把当前分组文件留一份带时间戳的副本（只保留最近 GroupsBackupKeep 份）。
+        /// 分组结构一旦被错误内容覆盖就无法回滚，这里提供兜底。
+        /// </summary>
+        static void BackupCurrent()
+        {
+            try
+            {
+                if (!File.Exists(GroupsPath))
+                    return;
+
+                string backupPath = Path.Combine(PublicParams.TranslatedDataDic,
+                    $"分组_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+
+                // 同一秒内的多次保存只备份一次
+                if (!File.Exists(backupPath))
+                    File.Copy(GroupsPath, backupPath, false);
+
+                // 清理超出保留数量的旧备份（按文件名倒序，文件名含时间戳）
+                var olds = Directory.GetFiles(PublicParams.TranslatedDataDic, "分组_*.json")
+                    .Select(p => new FileInfo(p))
+                    .OrderByDescending(f => f.Name)
+                    .Skip(GroupsBackupKeep)
+                    .ToArray();
+                foreach (var old in olds)
+                    old.Delete();
+            }
+            catch
+            {
+                // 备份失败不应阻塞正常保存
+            }
         }
 
         /// <summary>

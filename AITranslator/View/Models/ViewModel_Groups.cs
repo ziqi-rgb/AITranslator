@@ -54,6 +54,15 @@ namespace AITranslator.View.Models
         [ObservableProperty]
         private ObservableCollection<TranslationTask> filteredCompletedTasks = new();
 
+        /// <summary>
+        /// 分组数据是否已从磁盘加载完成。加载完成前一律禁止写盘。
+        /// 原因：启动时任务是后台分批加载的，分组树要等 LoadGroups() 才建立；
+        /// 若在这个窗口内关闭窗口，window_main_Closing 会调用 FlushGroups()，
+        /// 把内存中的空分组树覆盖到磁盘，导致分组结构全部丢失
+        /// （下次启动时所有任务都会落到"未分组"）。
+        /// </summary>
+        private volatile bool groupsLoaded;
+
         #endregion
 
         #region 分组过滤
@@ -178,7 +187,6 @@ namespace AITranslator.View.Models
         public void LoadGroups()
         {
             var groupsFile = GroupStore.Load();
-
             // 建立 DicName → Task 的索引（包含未完成 + 已完成）
             var taskMap = new Dictionary<string, TranslationTask>();
             foreach (var t in UnfinishedTasks)
@@ -226,6 +234,9 @@ namespace AITranslator.View.Models
 
             // 初始化过滤列表（默认显示全部）
             RebuildFilteredTasks();
+
+            // 加载完成，此后才允许写盘（防止启动阶段的空分组树覆盖磁盘数据）
+            groupsLoaded = true;
         }
 
         /// <summary>
@@ -240,6 +251,10 @@ namespace AITranslator.View.Models
         /// </summary>
         public void SaveGroups()
         {
+            // 分组树还没建立好就写盘会覆盖磁盘数据，直接跳过
+            if (!groupsLoaded)
+                return;
+
             lock (_groupsSaveLock)
             {
                 _groupsSaveTimer?.Dispose();
@@ -253,6 +268,15 @@ namespace AITranslator.View.Models
         /// </summary>
         public void FlushGroups()
         {
+            // 关键保护：启动阶段（分组尚未从磁盘加载）关闭窗口时，
+            // window_main_Closing 会调用本方法；此时内存里是空分组树，
+            // 一旦落盘就会把磁盘上完好的分组数据覆盖成空结构。
+            if (!groupsLoaded)
+            {
+                ViewModelManager.WriteLine($"[{DateTime.Now:G}]分组数据尚未加载完成，跳过本次写盘以保护磁盘上的分组数据");
+                return;
+            }
+
             lock (_groupsSaveLock)
             {
                 _groupsSaveTimer?.Dispose();

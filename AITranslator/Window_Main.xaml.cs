@@ -123,7 +123,9 @@ namespace AITranslator
             }
             catch (Exception groupErr)
             {
-                Window_Message.ShowDialog("警告", "加载分组信息失败：" + groupErr.Message);
+                Window_Message.ShowDialog("警告",
+                    "加载分组信息失败：" + groupErr.Message +
+                    "\r\n\r\n为防止覆盖磁盘上原有的分组数据，本次运行不会保存分组改动，请重启程序。");
             }
 
             loadingMask.Visibility = Visibility.Collapsed;

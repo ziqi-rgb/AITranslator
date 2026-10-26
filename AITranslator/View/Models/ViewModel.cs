@@ -404,7 +404,19 @@ namespace AITranslator.View.Models
         [RelayCommand]
         private void StartAll()
         {
-            if (UnfinishedTasks.Count == 0)
+            // 选中了分组时，只启动当前查看分组（含子分组）内的任务；未选分组（显示全部）时等同于"启动全部"
+            List<TranslationTask> targets;
+            if (SelectedGroup == null)
+            {
+                targets = new List<TranslationTask>(UnfinishedTasks);
+            }
+            else
+            {
+                var groupSet = SelectedGroup.GetTaskSet();
+                targets = UnfinishedTasks.Where(t => groupSet.Contains(t)).ToList();
+            }
+
+            if (targets.Count == 0)
                 return;
 
             if (Communicator.CommunicatorType == CommunicatorType.LLama && !Communicator.ModelLoaded)
@@ -413,8 +425,8 @@ namespace AITranslator.View.Models
                 return;
             }
 
-            // 将所有未完成任务标记为等待翻译，然后由 DispatchWaitingTasks 按并发数启动
-            foreach (var _task in UnfinishedTasks)
+            // 将目标未完成任务标记为等待翻译，然后由 DispatchWaitingTasks 按并发数启动
+            foreach (var _task in targets)
             {
                 if (_task.State == TaskState.Initialized || _task.State == TaskState.Pause)
                     _task.State = TaskState.WaitTranslate;
