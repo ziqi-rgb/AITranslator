@@ -6,45 +6,94 @@
              xmlns:local="clr-namespace:AITranslator.View.UserControls"
              xmlns:controls="clr-namespace:AITranslator.View.Controls"
              xmlns:calc="clr-namespace:CalcBinding;assembly=CalcBinding"
+             xmlns:vm="clr-namespace:AITranslator.View.Models"
              mc:Ignorable="d" 
-             d:DesignHeight="550" d:DesignWidth="350">
-    <ListBox x:Name="list_CompletedTasks" Background="Transparent" BorderThickness="0" ItemsSource="{Binding CompletedTasks}" ScrollViewer.CanContentScroll="False" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto">
-        <ListBox.ItemContainerStyle>
-            <Style TargetType="ListBoxItem">
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Setter Property="IsEnabled" Value="True"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </ListBox.ItemContainerStyle>
-        <ListBox.ItemTemplate>
-            <DataTemplate>
-                <Border Padding="5" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Height="52" Width="{calc:Binding '(ActualWidth - 10) less 0 ? 0 : (ActualWidth - 10)',ElementName=list_CompletedTasks}">
-                    <DockPanel>
-                        <Rectangle VerticalAlignment="Bottom" Height="4" DockPanel.Dock="Bottom" Fill="MediumPurple"/>
+             d:DesignHeight="550" d:DesignWidth="500">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="col_Groups" Width="150" MinWidth="0"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" ToolTip="打开文件夹" Command="{Binding OpenDicCommand}">
-                                <Button.Content>
-                                    <Viewbox Margin="4">
-                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M1171.561026 935.253333H88.746667V246.285128h1082.814359zM88.746667 88.746667h398.047179L508.849231 157.538462h-420.102564zM1171.561026 157.538462H601.796923l-30.982564-96.098462A88.221538 88.221538 0 0 0 486.793846 0H88.746667A88.746667 88.746667 0 0 0 0 88.746667v846.506666a88.746667 88.746667 0 0 0 88.746667 88.746667h1082.814359A88.746667 88.746667 0 0 0 1260.307692 935.253333V246.285128A88.746667 88.746667 0 0 0 1171.561026 157.538462"/>
-                                    </Viewbox>
-                                </Button.Content>
-                            </controls:ViewButton>
-                            <controls:ViewButton Width="24" Height="24" FontSize="16" Content="×" ToolTip="删除" Command="{Binding RemoveCommand}"/>
-                        </StackPanel>
-                        <TextBlock x:Name="tb_title" DockPanel.Dock="Top" HorizontalAlignment="Left" MaxWidth="180" Foreground="Gray" FocusVisualStyle="{x:Null}"  Text="{Binding FileName}" ToolTip="{Binding FileName}"/>
-                        <Rectangle DockPanel.Dock="Top" Margin="0,2" HorizontalAlignment="Left" MaxWidth="180" Width="{Binding ActualWidth, ElementName=tb_title}" Fill="#3CFFFFFF" Height="1"/>
-                        <TextBlock HorizontalAlignment="Left" Foreground="Gray" Text="{Binding State,Converter={StaticResource TaskStateToString}}"/>
-                    </DockPanel>
+        <!-- 左侧：分组导航（可折叠） -->
+        <Border Grid.Column="0" x:Name="border_Groups" Background="#0DFFFFFF" BorderBrush="#2CFFFFFF" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- 头部：标题 + 收起按钮 -->
+                <Grid DockPanel.Dock="Top" Margin="6,4,4,2">
+                    <TextBlock Text="📁 分组" Foreground="Gray" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                    <Button x:Name="btn_Collapse" Content="◀" Width="18" Height="16" Padding="0" Margin="0,0,0,2"
+                            HorizontalAlignment="Right" Background="Transparent" BorderThickness="0"
+                            Foreground="Gray" FontSize="10" Click="Btn_Collapse_Click" ToolTip="收起分组栏"/>
+                </Grid>
 
-                </Border>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+                <Button DockPanel.Dock="Bottom" Content="+ 新建分组" 
+                        Margin="4,2" Padding="4,2" Click="Btn_CreateGroup_Click" FontSize="11"
+                        Background="#1CFFFFFF" Foreground="#DDFFFFFF" BorderBrush="#3CFFFFFF"/>
+                <TreeView x:Name="tree_Groups" ItemsSource="{Binding TreeRootNodes}" 
+                          Background="Transparent" BorderThickness="0"
+                          SelectedItemChanged="Tree_SelectedItemChanged"
+                          ContextMenuOpening="Tree_ContextMenuOpening">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:TaskGroup}" ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Name}" Foreground="#DDFFFFFF" FontSize="12" 
+                                       VerticalAlignment="Center" MaxWidth="100" TextTrimming="CharacterEllipsis"/>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <!-- 不再默认展开：万级分组全量物化会拖垮 UI，由用户手动展开 -->
+                            <Setter Property="Padding" Value="2,1"/>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+            </DockPanel>
+        </Border>
+
+        <!-- 折叠后显示的细条（点击展开） -->
+        <Button Grid.Column="0" x:Name="btn_Expand" Visibility="Collapsed" Content="📁 ▶" 
+                HorizontalAlignment="Left" VerticalAlignment="Stretch" Padding="2,8"
+                Background="Transparent" BorderThickness="0" Foreground="Gray" FontSize="11"
+                Click="Btn_Collapse_Click" ToolTip="展开分组栏"/>
+
+        <!-- 右侧：已完成任务列表 -->
+        <ListBox Grid.Column="1" x:Name="list_CompletedTasks" Background="Transparent" BorderThickness="0" ItemsSource="{Binding FilteredCompletedTasks}" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Setter Property="IsEnabled" Value="True"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border Padding="5" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Height="52" Width="{calc:Binding '(ActualWidth - 10) less 0 ? 0 : (ActualWidth - 10)',ElementName=list_CompletedTasks}">
+                        <DockPanel>
+                            <Rectangle VerticalAlignment="Bottom" Height="4" DockPanel.Dock="Bottom" Fill="MediumPurple"/>
+
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" ToolTip="打开文件夹" Command="{Binding OpenDicCommand}">
+                                    <Button.Content>
+                                        <Viewbox Margin="4">
+                                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M1171.561026 935.253333H88.746667V246.285128h1082.814359zM88.746667 88.746667h398.047179L508.849231 157.538462h-420.102564zM1171.561026 157.538462H601.796923l-30.982564-96.098462A88.221538 88.221538 0 0 0 486.793846 0H88.746667A88.746667 88.746667 0 0 0 0 88.746667v846.506666a88.746667 88.746667 0 0 0 88.746667 88.746667h1082.814359A88.746667 88.746667 0 0 0 1260.307692 935.253333V246.285128A88.746667 88.746667 0 0 0 1171.561026 157.538462"/>
+                                        </Viewbox>
+                                    </Button.Content>
+                                </controls:ViewButton>
+                                <controls:ViewButton Width="24" Height="24" FontSize="16" Content="×" ToolTip="删除" Command="{Binding RemoveCommand}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="tb_title" DockPanel.Dock="Top" HorizontalAlignment="Left" MaxWidth="180" Foreground="Gray" FocusVisualStyle="{x:Null}"  Text="{Binding FileName}" ToolTip="{Binding FileName}"/>
+                            <Rectangle DockPanel.Dock="Top" Margin="0,2" HorizontalAlignment="Left" MaxWidth="180" Width="{Binding ActualWidth, ElementName=tb_title}" Fill="#3CFFFFFF" Height="1"/>
+                            <TextBlock HorizontalAlignment="Left" Foreground="Gray" Text="{Binding State,Converter={StaticResource TaskStateToString}}"/>
+                        </DockPanel>
+
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
 </UserControl>

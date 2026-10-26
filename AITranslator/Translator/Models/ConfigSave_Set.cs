@@ -62,6 +62,10 @@ namespace AITranslator.Translator.Models
         /// 启用翻译完成自动关机
         /// </summary>
         public bool AutoShutdown { get; set; }
+        /// <summary>
+        /// 最大并发任务数（1=串行）
+        /// </summary>
+        public int MaxConcurrency { get; set; } = 1;
 
         public void CopyFromViewModel(ViewModel_SetView vm)
         {
@@ -78,6 +82,7 @@ namespace AITranslator.Translator.Models
             TranslateFailedAgain = vm.TranslateFailedAgain;
             TranslateFailedTimes = vm.TranslateFailedTimes;
             AutoShutdown = vm.AutoShutdown;
+            MaxConcurrency = vm.MaxConcurrency;
         }
 
         public void CopyToViewModel(ViewModel_SetView vm)
@@ -95,6 +100,7 @@ namespace AITranslator.Translator.Models
             vm.TranslateFailedAgain = TranslateFailedAgain;
             vm.TranslateFailedTimes = TranslateFailedTimes;
             vm.AutoShutdown = AutoShutdown;
+            vm.MaxConcurrency = MaxConcurrency;
         }
     }
 }

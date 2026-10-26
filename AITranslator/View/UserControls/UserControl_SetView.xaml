@@ -134,6 +134,27 @@
             </GroupBox>
 
             <CheckBox HorizontalAlignment="Left" Margin="0,0,5,5" Content="全部翻译完成自动关闭电脑 (仅此次翻译生效)" Foreground="White" IsChecked="{Binding AutoShutdown}"/>
+
+            <GroupBox Margin="0,0,5,5" BorderThickness="0.1" BorderBrush="White">
+                <GroupBox.Header>
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <TextBlock Text="并发翻译" Foreground="White" FontSize="10"  VerticalAlignment="Center"/>
+                        <TextBlock Margin="3,0,0,0" Text="[?]" Cursor="Help" Foreground="White" FontSize="10" ToolTip="同时翻译的任务数量。1=串行（一个接一个），>1=多个任务同时翻译。注意：并发数过高可能导致 API 限流或显存不足"/>
+                    </StackPanel>
+                </GroupBox.Header>
+                <StackPanel Margin="5">
+                    <Grid Margin="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition/>
+                            <ColumnDefinition Width="40"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="并发数" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Slider x:Name="slider_MaxConcurrency" Foreground="Gray" Grid.Column="1" Margin="10,0" Maximum="8" Minimum="1" Value="{Binding MaxConcurrency}" Ticks="1 2 3 4 5 6 7 8" TickPlacement="BottomRight" FocusVisualStyle="{x:Null}"/>
+                        <TextBox Grid.Column="2" pros:TextBoxAttachedProperties.InputType="UnsignedInteger" CaretBrush="White" Text="{Binding Value, ElementName=slider_MaxConcurrency}" Background="Transparent" Foreground="White" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

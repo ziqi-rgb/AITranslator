@@ -118,6 +118,17 @@ namespace AITranslator.View.Models
         /// </summary>
         [ObservableProperty]
         public TranslateDataType translateType;
+        /// <summary>
+        /// 原始文件路径（用于导入去重）
+        /// </summary>
+        [ObservableProperty]
+        private string? sourcePath;
+
+        /// <summary>
+        /// 任务导入时间（内存缓存，供"导入时间"排序使用；不持久化、不参与 UI 绑定）。
+        /// 启动加载时取数据目录创建时间，新建任务时取当前时间。
+        /// </summary>
+        public DateTime ImportTime { get; set; } = DateTime.MinValue;
 
         public TranslationTask() { }
 
@@ -130,6 +141,7 @@ namespace AITranslator.View.Models
         {
             ViewModel_DefaultTemplate? defaultTemplate = new ViewModel_DefaultTemplate();
             FileName = fileName;
+            SourcePath = Path.GetFullPath(path);
             TranslateType = type;
             switch (TranslateType)
             {
@@ -165,6 +177,8 @@ namespace AITranslator.View.Models
             }
 
             State = TaskState.Initialized;
+            //新建任务：导入时间即当前时间（供"导入时间"排序）
+            ImportTime = DateTime.Now;
             //创建配置文件
             SaveConfig();
         }
@@ -194,8 +208,9 @@ namespace AITranslator.View.Models
         {
             _translator.Stoped -= _translator_Stoped;
             Speed = 0;
-            if (ViewModelManager.ViewModel.ActiveTask == this)
-                ViewModelManager.ViewModel.ActiveTask = null;
+
+            // 释放并发槽位（内部自动调度下一个等待任务）
+            ViewModelManager.ViewModel.ReleaseConcurrencySlot(this);
 
             //如果启用发送邮件
             if (ViewModelManager.ViewModel.SetView_ViewModel.EnableEmail)
@@ -221,16 +236,12 @@ namespace AITranslator.View.Models
                 State = TaskState.WaitMerge;
             SaveConfig();
 
-            //查找并启动下一个任务
-            TranslationTask? nextTask = ViewModelManager.ViewModel.UnfinishedTasks.FirstOrDefault(s => s.State == TaskState.WaitTranslate);
-            if (nextTask is null)
+            //如果没有下一个任务了，且不是用户主动暂停的，触发自动关机
+            if (ViewModelManager.ViewModel.ActiveTaskCount == 0)
             {
-                //如果没有下一个任务了，且不是用户主动暂停的
                 if (ViewModelManager.ViewModel.SetView_ViewModel.AutoShutdown && (!e.IsPause.HasValue || !e.IsPause.Value || e.PauseMsg != "按下暂停按钮 翻译暂停"))
                     Process.Start("c:/windows/system32/shutdown.exe", "-s -f -t 0");
             }
-            else
-                nextTask.Start();
         }
 
         public void Start(bool showErrorMsg = true)
@@ -238,16 +249,14 @@ namespace AITranslator.View.Models
             TaskState beforeState = State;
             ExpandedFuncs.TryExceptions(() =>
             {
-                //如果当前存在正在执行的任务，将状态设置为等待开始翻译
-                if (ViewModelManager.ViewModel.ActiveTask is not null)
+                //尝试获取并发槽位，若已达最大并发数则设为等待翻译
+                if (!ViewModelManager.ViewModel.TryAcquireConcurrencySlot(this))
                 {
                     if (State == TaskState.Initialized || State == TaskState.Pause)
                         State = TaskState.WaitTranslate;
                     return;
                 }
 
-                //设置当前正在翻译的任务为此任务
-                ViewModelManager.ViewModel.ActiveTask = this;
                 //创建翻译器
                 CreateTranslator();
 
@@ -260,11 +269,11 @@ namespace AITranslator.View.Models
             {
                 if (err is DicNotFoundException)
                 {
+                    ViewModelManager.ViewModel.ReleaseConcurrencySlot(this);
                     ViewModelManager.ViewModel.RemoveTask(this);
                     return;
                 }
-                if (ViewModelManager.ViewModel.ActiveTask == this)
-                    ViewModelManager.ViewModel.ActiveTask = null;
+                ViewModelManager.ViewModel.ReleaseConcurrencySlot(this);
                 if (_translator is not null)
                     _translator = null;
 
@@ -303,6 +312,57 @@ namespace AITranslator.View.Models
                 TranslateDataType.Txt => TxtTranslateData.HasFailedData(DicName),
                 _ => throw new KnownException("不支持的翻译文件类型"),
             };
+        }
+
+        /// <summary>
+        /// 获取翻译结果（合并后）的路径；不存在则返回 null
+        /// </summary>
+        public string? GetResultPath()
+        {
+            string path = PublicParams.GetFileName(DicName, FileName, TranslateType, GenerateFileType.Merged);
+            if (File.Exists(path)) return path;
+            if (Directory.Exists(path)) return path;   // Tpp 类型结果为文件夹
+            return null;
+        }
+
+        /// <summary>
+        /// 将翻译结果导出到指定目录（文件名沿用原始导入文件名）。成功返回 true，无结果文件返回 false
+        /// </summary>
+        public bool ExportResult(string destDir)
+        {
+            string? resultPath = GetResultPath();
+            if (resultPath is null)
+                return false;
+
+            Directory.CreateDirectory(destDir);
+
+            // 导出文件名沿用原始导入文件的名称（含扩展名）
+            string originalName = (SourcePath != null && File.Exists(SourcePath))
+                ? Path.GetFileName(SourcePath)
+                : FileName;
+
+            if (Directory.Exists(resultPath))
+            {
+                // Tpp：结果是文件夹，整体复制到 <destDir>/<originalName>/
+                CopyDirectoryRecursive(resultPath, Path.Combine(destDir, originalName));
+            }
+            else
+            {
+                File.Copy(resultPath, Path.Combine(destDir, originalName), overwrite: true);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 递归复制目录内容
+        /// </summary>
+        static void CopyDirectoryRecursive(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+            foreach (string file in Directory.GetFiles(sourceDir))
+                File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), overwrite: true);
+            foreach (string sub in Directory.GetDirectories(sourceDir))
+                CopyDirectoryRecursive(sub, Path.Combine(destDir, Path.GetFileName(sub)));
         }
         public void merge()
         {
@@ -363,6 +423,8 @@ namespace AITranslator.View.Models
             {
                 ViewModelManager.ViewModel.UnfinishedTasks.Remove(this);
                 ViewModelManager.ViewModel.CompletedTasks.Add(this);
+                // 任务完成状态变化会改变两个视图的过滤结果，增量刷新（避免全列表重建）
+                ViewModelManager.ViewModel.OnTaskCompleted(this);
             });
         }
 
@@ -378,6 +440,7 @@ namespace AITranslator.View.Models
                     ConfigSave_Translate config = new ConfigSave_Translate()
                     {
                         FileName = FileName,
+                        SourcePath = SourcePath,
                         TemplateConfig = TemplateConfig?.Name,
                         TranslateType = TranslateType,
                         Replaces = Replaces.ToReplaceDictionary(),
@@ -408,6 +471,7 @@ namespace AITranslator.View.Models
             //读取配置文件
             ConfigSave_Translate config = JsonPersister.Load<ConfigSave_Translate>(PublicParams.GetFileName(DicName, TranslateType, GenerateFileType.Config));
             FileName = config.FileName;
+            SourcePath = config.SourcePath;
             TemplateConfig = ViewModelManager.ViewModel.TemplateConfigs.FirstOrDefault(s => s.Name == config.TemplateConfig);
             TranslateType = config.TranslateType;
             Replaces = config.Replaces.ToReplaceCollection();

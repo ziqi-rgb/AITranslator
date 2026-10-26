@@ -91,6 +91,21 @@ namespace AITranslator.View.Models
         [ObservableProperty]
         private bool autoShutdown;
 
+        /// <summary>
+        /// 最大并发任务数（1=串行，默认1）
+        /// </summary>
+        [ObservableProperty]
+        private int maxConcurrency = 1;
+
+        /// <summary>
+        /// 当设置页的 MaxConcurrency 改变时，尝试启动更多等待任务
+        /// </summary>
+        partial void OnMaxConcurrencyChanged(int value)
+        {
+            if (value > 0)
+                ViewModelManager.ViewModel.DispatchWaitingTasks();
+        }
+
         public void Enable()
         {
             ViewModel_SetView vm = ViewModelManager.ViewModel.SetView_ViewModel;
@@ -107,6 +122,7 @@ namespace AITranslator.View.Models
             vm.SmtpUseSSL = SmtpUseSSL;
             vm.TranslateFailedAgain = TranslateFailedAgain;
             vm.TranslateFailedTimes = TranslateFailedTimes;
+            vm.MaxConcurrency = MaxConcurrency;
             ViewModelManager.SaveBaseConfig();
         }
 
@@ -128,6 +144,7 @@ namespace AITranslator.View.Models
                 SmtpUseSSL = vm.SmtpUseSSL,
                 TranslateFailedAgain = vm.TranslateFailedAgain,
                 TranslateFailedTimes = vm.TranslateFailedTimes,
+                MaxConcurrency = vm.MaxConcurrency,
             };
         }
 

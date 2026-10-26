@@ -41,6 +41,10 @@ namespace AITranslator.Translator.Models
         /// </summary>
         public int HistoryCount { get; set; }
         /// <summary>
+        /// 单条文本最大字符长度，超过则会自动拆分为多段翻译
+        /// </summary>
+        public int MaxSegmentLength { get; set; } = 500;
+        /// <summary>
         /// 合并翻译的参数
         /// </summary>
         public ConfigSave_TranslatePrams TranslatePrams_FirstMult { get; set; } = new ConfigSave_TranslatePrams();
@@ -62,10 +66,15 @@ namespace AITranslator.Translator.Models
                 HistoryCount = 50;
             else if (HistoryCount < 0)
                 HistoryCount = 0;
+            if (MaxSegmentLength > 8192)
+                MaxSegmentLength = 8192;
+            else if (MaxSegmentLength < 50)
+                MaxSegmentLength = 50;
         }
         public void CopyFromViewModel(ViewModel_DefaultTemplate vm)
         {
             HistoryCount = vm.HistoryCount;
+            MaxSegmentLength = vm.MaxSegmentLength;
             TemplateDic = vm.TemplateDic?.Name;
             PromptTemplate = vm.PromptTemplate?.Name;
             ReplaceTemplate = vm.ReplaceTemplate?.Name;
@@ -91,6 +100,7 @@ namespace AITranslator.Translator.Models
                 HistoryCount = 0;
 
             vm.HistoryCount = HistoryCount;
+            vm.MaxSegmentLength = MaxSegmentLength;
             vm.TemplateDic = ViewModelManager.ViewModel.TemplateDics.FirstOrDefault(s => s.Name == TemplateDic);
 
             if (vm.TemplateDic is null)

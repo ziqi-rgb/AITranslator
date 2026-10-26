@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Reasonix / CodeGraph local state
+.reasonix/
+.codegraph/
+
 LLamaSelect/CUDA/
 LLamaSelect/OpenCL/
 # User-specific files
@@ -363,3 +367,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /LLamaSelect/Vulkan
+
+# 本地运行时数据库与工具产物（不入库）
+writing.db
+.entroly/
+.reasonix/

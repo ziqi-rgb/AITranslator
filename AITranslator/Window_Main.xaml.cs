@@ -1,4 +1,5 @@
-﻿using AITranslator.Translator.Models;
+﻿using AITranslator.Exceptions;
+using AITranslator.Translator.Models;
 using AITranslator.Translator.Persistent;
 using AITranslator.Translator.Tools;
 using AITranslator.View.Models;
@@ -7,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Net;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -40,12 +42,12 @@ namespace AITranslator
             Task.Factory.StartNew(CheckTemplateChangedCycle, TaskCreationOptions.LongRunning);
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             while (!templateLoaded)
                 Thread.Sleep(10);
             //读取初始化配置
-            InitState();
+            await InitState();
         }
         private void App_OtherProgressSend(object? sender, byte[] e)
         {
@@ -62,7 +64,7 @@ namespace AITranslator
         /// <summary>
         /// 读取初始化配置
         /// </summary>
-        void InitState()
+        async Task InitState()
         {
             try
             {
@@ -100,20 +102,86 @@ namespace AITranslator
             }
             if (!Directory.Exists(PublicParams.TranslatedDataDic))
                 Directory.CreateDirectory(PublicParams.TranslatedDataDic);
-            //读取文件夹信息，加载历史翻译文件
-            DirectoryInfo[] directoryInfos = Directory.GetDirectories(PublicParams.TranslatedDataDic).Select(s => new DirectoryInfo(s)).OrderBy(s => s.CreationTime).ToArray();
-            foreach (var dicInfo in directoryInfos)
+
+            // 启动加载：任务配置读取全部放到后台线程（万级任务时不再冻结 UI），
+            // 挂载到 ViewModel/分组树仍在 UI 线程分批执行。
+            loadingMask.Visibility = Visibility.Visible;
+
+            try
             {
-                ExpandedFuncs.TryExceptions(() =>
+                await LoadTasksInBackground();
+            }
+            catch (Exception err)
+            {
+                Window_Message.ShowDialog("错误", "加载翻译任务失败：" + err.Message);
+            }
+
+            // 加载分组树（旧数据自动归入"未分组"）
+            try
+            {
+                ViewModelManager.ViewModel.LoadGroups();
+            }
+            catch (Exception groupErr)
+            {
+                Window_Message.ShowDialog("警告", "加载分组信息失败：" + groupErr.Message);
+            }
+
+            loadingMask.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 后台线程枚举目录并逐个读取任务配置（TranslationTask 构造内含同步 JSON 反序列化），
+        /// 每 200 个切回 UI 线程挂载一次，避免万级任务时长时间冻结界面。
+        /// </summary>
+        async Task LoadTasksInBackground()
+        {
+            string dataDic = PublicParams.TranslatedDataDic;
+
+            List<TranslationTask> loaded = await Task.Run(() =>
+            {
+                var result = new List<TranslationTask>();
+                // 按目录创建时间排序（与原逻辑一致）
+                DirectoryInfo[] directoryInfos = Directory.GetDirectories(dataDic)
+                    .Select(s => new DirectoryInfo(s))
+                    .OrderBy(s => s.CreationTime)
+                    .ToArray();
+
+                foreach (var dicInfo in directoryInfos)
+                {
+                    try
                     {
-                        TranslationTask task = new TranslationTask(dicInfo);
+                        var task = new TranslationTask(dicInfo);
+                        // 缓存导入时间（目录创建时间），避免排序时逐任务磁盘 stat
+                        task.ImportTime = dicInfo.CreationTime;
+                        result.Add(task);
+                    }
+                    catch (Exception err)
+                    {
+                        // 单个任务配置损坏不影响整体启动（与原 ShowDialog:false 行为一致）
+                        ViewModelManager.WriteLine($"[{DateTime.Now:G}]加载任务[{dicInfo.Name}]失败:{err.Message}");
+                    }
+                }
+                return result;
+            });
+
+            const int batchSize = 200;
+            for (int i = 0; i < loaded.Count; i += batchSize)
+            {
+                var batch = loaded.GetRange(i, Math.Min(batchSize, loaded.Count - i));
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var task in batch)
                         ViewModelManager.ViewModel.AddTask(task);
-                    },
-                    ShowDialog: false);
+                });
             }
         }
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
-        private void window_main_Closing(object sender, System.ComponentModel.CancelEventArgs e) => tbIcon.Dispose();
+        private void window_main_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // 关闭前立即落盘防抖中的分组数据，避免最后 ~1s 内的变更丢失
+            ViewModelManager.ViewModel.FlushGroups();
+            tbIcon.Dispose();
+        }
         private async void Button_Small_Click(object sender, RoutedEventArgs e) => await AnimHide();
         private async void Button_Close_Click(object sender, RoutedEventArgs e) => await AnimClose();
         private async void Button_Close_Taskbar_Click(object sender, RoutedEventArgs e)
@@ -203,18 +271,29 @@ namespace AITranslator
         private void Window_PreviewDrop(object sender, DragEventArgs e)
         {
             string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
-            foreach (var path in paths)
+            Task.Run(() =>
             {
-                ExpandedFuncs.TryExceptions(() =>
+                var vm = ViewModelManager.ViewModel;
+                foreach (var path in paths)
                 {
-                    FileAttributes attr = File.GetAttributes(path);
-                    //如果是文件夹
-                    if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
-                        ViewModelManager.ViewModel.CreatAddTaskFromFolder(path);
-                    else
-                        ViewModelManager.ViewModel.CreatAddTaskFromFile(path);
-                });
-            }
+                    try
+                    {
+                        FileAttributes attr = File.GetAttributes(path);
+                        if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
+                            vm.BackgroundImportFolder(path);
+                        else
+                            vm.BackgroundImportFile(path);
+                    }
+                    catch (KnownException err)
+                    {
+                        Dispatcher.Invoke(() => Window_Message.ShowDialog("错误", $"错误:{err.Message}"));
+                    }
+                    catch (Exception err)
+                    {
+                        Dispatcher.Invoke(() => Window_Message.ShowDialog("错误", $"未知错误:{err}"));
+                    }
+                }
+            });
         }
 
         void CheckTemplateChangedCycle()

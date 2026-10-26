@@ -176,7 +176,9 @@
                                     <StackPanel>
                                         <controls:ViewButton Height="24" FontSize="11" Content="文件" ToolTip="从文件创建翻译任务，支持json/srt/txt文件" Command="{Binding AddTaskFromFileCommand}"/>
                                         <Rectangle Height="1" Fill="#FFAAAAAA"/>
-                                        <controls:ViewButton Height="24" FontSize="11" Content="文件夹" ToolTip="从文件夹创建翻译任务，支持T++导出的文件" Command="{Binding AddTaskFromFolderCommand}"/>
+                                        <controls:ViewButton Height="24" FontSize="11" Content="文件夹" ToolTip="从文件夹创建翻译任务，支持csv(T++)/json/srt/txt文件" Command="{Binding AddTaskFromFolderCommand}"/>
+                                        <Rectangle Height="1" Fill="#FFAAAAAA"/>
+                                        <controls:ViewButton Height="24" FontSize="11" Content="批量导入" ToolTip="递归扫描文件夹（含子文件夹），按目录结构自动分组" Command="{Binding AddTaskFromBatchFolderCommand}"/>
                                     </StackPanel>
                                 </Border>
                             </Popup>
@@ -270,6 +272,13 @@
                     <uc:UserControl_ModelLoader x:Name="uc_ModelLoader" VerticalAlignment="Bottom" DataContext="{Binding DataContext,RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type Window}}}"/>
                 </Grid>
             </Grid>
+            <!-- 启动加载遮罩：任务在后台线程逐个读取配置，UI 分批挂载期间显示进度 -->
+            <Border x:Name="loadingMask" Background="#B01E2430" Visibility="Collapsed">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="正在加载翻译任务..." Foreground="#FFDDE3EE" FontSize="16" Margin="0,0,0,12"/>
+                    <ProgressBar x:Name="loadingBar" Width="260" Height="4" BorderThickness="0" IsIndeterminate="True" Foreground="MediumPurple" Background="#40FFFFFF"/>
+                </StackPanel>
+            </Border>
         </Grid>
     </Border>
 </Window>

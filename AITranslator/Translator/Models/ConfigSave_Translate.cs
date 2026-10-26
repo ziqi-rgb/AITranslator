@@ -38,5 +38,9 @@ namespace AITranslator.Translator.Models
         /// 当前任务状态
         /// </summary>
         public TaskState State { get; set; }
+        /// <summary>
+        /// 原始文件路径（用于导入去重，旧记录为 null）
+        /// </summary>
+        public string? SourcePath { get; set; }
     }
 }

@@ -8,67 +8,134 @@
              xmlns:calc="clr-namespace:CalcBinding;assembly=CalcBinding"
              xmlns:vm="clr-namespace:AITranslator.View.Models" 
              mc:Ignorable="d" 
-             d:DesignHeight="550" d:DesignWidth="350">
-    <ListBox x:Name="list_UnfinishedTasks" Background="Transparent" BorderThickness="0" ItemsSource="{Binding UnfinishedTasks}" ScrollViewer.CanContentScroll="False" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto">
-        <ListBox.ItemContainerStyle>
-            <Style TargetType="ListBoxItem">
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Setter Property="IsEnabled" Value="True"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type ListBoxItem}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </ListBox.ItemContainerStyle>
-        <ListBox.ItemTemplate>
-            <DataTemplate DataType="{x:Type vm:TranslationTask}">
-                <Border Padding="5" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Height="52" Width="{calc:Binding '(ActualWidth - 10) less 0 ? 0 : (ActualWidth - 10)',ElementName=list_UnfinishedTasks}">
-                    <DockPanel>
-                        <ProgressBar VerticalAlignment="Bottom" Height="4" DockPanel.Dock="Bottom" Foreground="MediumPurple" BorderThickness="0" Value="{Binding Progress}" Maximum="100" Background="#1CFFFFFF"/>
+             d:DesignHeight="550" d:DesignWidth="500">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="col_Groups" Width="150" MinWidth="0"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Set'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="设置翻译参数" Command="{Binding TransConfigCommand}">
-                                <Button.Content>
-                                    <Viewbox Margin="4">
-                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M928 800H508c-14.2-55.2-64.3-96-124-96-59.6 0-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32 0 17.7 14.3 32 32 32h164c14.2 55.2 64.3 96 124 96 59.6 0 109.8-40.8 124-96h420c17.7 0 32-14.3 32-32C960 814.3 945.7 800 928 800zM384 897c-35.9 0-65-29.1-65-65s29.1-65 65-65 65 29.1 65 65S419.9 897 384 897zM928 480H764c-14.2-55.2-64.3-96-124-96s-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32 0 17.7 14.3 32 32 32h420c14.2 55.2 64.3 96 124 96s109.8-40.8 124-96h164c17.7 0 32-14.3 32-32C960 494.3 945.7 480 928 480zM640 577c-35.9 0-65-29.1-65-65s29.1-65 65-65 65 29.1 65 65S675.9 577 640 577zM96 224h164c14.2 55.2 64.3 96 124 96 59.6 0 109.8-40.8 124-96h420c17.7 0 32-14.3 32-32 0-17.7-14.3-32-32-32H508c-14.2-55.2-64.3-96-124-96-59.6 0-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32C64 209.7 78.3 224 96 224zM384 127c35.9 0 65 29.1 65 65s-29.1 65-65 65-65-29.1-65-65S348.1 127 384 127z"/>
-                                    </Viewbox>
-                                </Button.Content>
-                            </controls:ViewButton>
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Merge'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="重翻错误部分" Command="{Binding ReTranslateFailedCommand}">
-                                <Button.Content>
-                                    <Viewbox Margin="3,2.5,3,3.5">
-                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M511.12717473 65.46376948v84.25211895c199.84602618 0 362.28411157 162.43808535 362.28411152 362.28411157S710.97320093 874.28411157 511.12717473 874.28411157 148.84306315 711.84602618 148.84306315 512c0-85.93716134 31.00477979-169.1782549 85.93716137-234.22089074V387.30686393h84.25211896v-261.1815688h-271.2918231v84.25211899h134.1293734c-75.15289014 81.89305963-117.2789496 189.73577193-117.27894959 301.62258588 0 246.35319584 200.18303466 446.53623052 446.53623054 446.53623052S957.66340525 758.35319584 957.66340525 512 757.48037059 65.46376948 511.12717473 65.46376948zM642.56048033 497.84564401l-192.43183971-111.21279707c-1.68504239-1.01102544-3.70709323 0.33700849-3.70709326 2.35905939v222.42559403c0 2.02205085 2.02205085 3.03307629 3.70709326 2.35905937l192.43183971-111.21279704c1.68504239-1.01102544 1.68504239-3.70709323 0-4.71811868z"/>
-                                    </Viewbox>
-                                </Button.Content>
-                            </controls:ViewButton>
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Merge'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="合并" Command="{Binding MergeCommand}">
-                                <Button.Content>
-                                    <Viewbox Margin="2.5,2.5,4,4">
-                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M589.44 648.32v188.8h268.8V174.4h-268.8v189.76H540.8V128h365.76v757.44H540.8v-237.12zM672 528.32h131.2v-44.8H672v-94.08l-131.2 116.16 131.2 116.48zM432.96 648.32v188.8h-268.8V174.4h268.8v189.76h48.64V128H115.84v757.44h365.76v-237.12zM352 483.52H220.48v44.8H352v93.76l129.92-116.48L352 389.44z"/>
-                                    </Viewbox>
-                                </Button.Content>
-                            </controls:ViewButton>
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" ToolTip="打开文件夹" Command="{Binding OpenDicCommand}">
-                                <Button.Content>
-                                    <Viewbox Margin="4">
-                                        <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M1171.561026 935.253333H88.746667V246.285128h1082.814359zM88.746667 88.746667h398.047179L508.849231 157.538462h-420.102564zM1171.561026 157.538462H601.796923l-30.982564-96.098462A88.221538 88.221538 0 0 0 486.793846 0H88.746667A88.746667 88.746667 0 0 0 0 88.746667v846.506666a88.746667 88.746667 0 0 0 88.746667 88.746667h1082.814359A88.746667 88.746667 0 0 0 1260.307692 935.253333V246.285128A88.746667 88.746667 0 0 0 1171.561026 157.538462"/>
-                                    </Viewbox>
-                                </Button.Content>
-                            </controls:ViewButton>
-                            <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" Content="{Binding State,Converter={StaticResource StartButtonText},ConverterParameter=False}" ToolTip="{Binding State,Converter={StaticResource StartButtonText},ConverterParameter=True}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Start'}" Click="Button_StartOrPause_Click"/>
-                            <controls:ViewButton Width="24" Height="24" FontSize="16" Content="×" ToolTip="删除" Command="{Binding RemoveCommand}"/>
-                        </StackPanel>
-                        <TextBlock x:Name="tb_title" DockPanel.Dock="Top" HorizontalAlignment="Left" MaxWidth="180" Foreground="Gray" FocusVisualStyle="{x:Null}"  Text="{Binding FileName}" ToolTip="{Binding FileName}"/>
-                        <Rectangle DockPanel.Dock="Top" Margin="0,2" HorizontalAlignment="Left" MaxWidth="180" Width="{Binding ActualWidth, ElementName=tb_title}" Fill="#3CFFFFFF" Height="1"/>
-                        <TextBlock DockPanel.Dock="Left" HorizontalAlignment="Left" Width="58" Foreground="Gray" Text="{Binding Progress,StringFormat={}{0:0.00}%}"/>
-                        <TextBlock HorizontalAlignment="Left" Margin="0,0,10,0" Foreground="Gray" Text="{Binding State,Converter={StaticResource TaskStateToString}}"/>
-                        <TextBlock HorizontalAlignment="Left" Foreground="Gray" Visibility="{Binding State,Converter={StaticResource TaskStateToSpeedVisibility}}" Text="{Binding Speed,StringFormat={}{0:0.##} Tokens/s}"/>
-                    </DockPanel>
-                </Border>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+        <!-- 左侧：分组导航（可折叠） -->
+        <Border Grid.Column="0" x:Name="border_Groups" Background="#0DFFFFFF" BorderBrush="#2CFFFFFF" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- 头部：标题 + 收起按钮 -->
+                <Grid DockPanel.Dock="Top" Margin="6,4,4,2">
+                    <TextBlock Text="📁 分组" Foreground="Gray" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                    <Button x:Name="btn_Collapse" Content="◀" Width="18" Height="16" Padding="0" Margin="0,0,0,2"
+                            HorizontalAlignment="Right" Background="Transparent" BorderThickness="0"
+                            Foreground="Gray" FontSize="10" Click="Btn_Collapse_Click" ToolTip="收起分组栏"/>
+                </Grid>
+
+                <Button DockPanel.Dock="Bottom" Content="+ 新建分组" 
+                        Margin="4,2" Padding="4,2" Click="Btn_CreateGroup_Click" FontSize="11"
+                        Background="#1CFFFFFF" Foreground="#DDFFFFFF" BorderBrush="#3CFFFFFF"/>
+                <TreeView x:Name="tree_Groups" ItemsSource="{Binding TreeRootNodes}" 
+                          Background="Transparent" BorderThickness="0"
+                          SelectedItemChanged="Tree_SelectedItemChanged"
+                          ContextMenuOpening="Tree_ContextMenuOpening"
+                          AllowDrop="True" DragOver="Tree_DragOver" Drop="Tree_Drop">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:TaskGroup}" ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Name}" Foreground="#DDFFFFFF" FontSize="12" 
+                                       VerticalAlignment="Center" MaxWidth="100" TextTrimming="CharacterEllipsis"/>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <!-- 不再默认展开：万级分组全量物化会拖垮 UI，由用户手动展开 -->
+                            <Setter Property="Padding" Value="2,1"/>
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                </TreeView>
+            </DockPanel>
+        </Border>
+
+        <!-- 折叠后显示的细条（点击展开） -->
+        <Button Grid.Column="0" x:Name="btn_Expand" Visibility="Collapsed" Content="📁 ▶" 
+                HorizontalAlignment="Left" VerticalAlignment="Stretch" Padding="2,8"
+                Background="Transparent" BorderThickness="0" Foreground="Gray" FontSize="11"
+                Click="Btn_Collapse_Click" ToolTip="展开分组栏"/>
+
+        <!-- 右侧：原有任务列表 -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 排序工具栏 -->
+            <Border Grid.Row="0" Margin="2,2,2,0" Padding="4,2" BorderBrush="Gray" BorderThickness="0,0,0,1" Background="#1CFFFFFF">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <TextBlock Foreground="Gray" FontSize="11" VerticalAlignment="Center">排序:</TextBlock>
+                    <RadioButton GroupName="TaskSort" Content="名称" Foreground="Gray" FontSize="11" Margin="6,0,0,0" Command="{Binding ChangeSortModeCommand}" CommandParameter="{x:Static vm:TaskSortMode.Name}"/>
+                    <RadioButton GroupName="TaskSort" Content="导入时间" Foreground="Gray" FontSize="11" Margin="6,0,0,0" Command="{Binding ChangeSortModeCommand}" CommandParameter="{x:Static vm:TaskSortMode.ImportTime}"/>
+                    <RadioButton GroupName="TaskSort" Content="手动" Foreground="Gray" FontSize="11" Margin="6,0,0,0" Command="{Binding ChangeSortModeCommand}" CommandParameter="{x:Static vm:TaskSortMode.Manual}"/>
+                    <Button x:Name="btn_SortDir" Margin="10,0,0,0" Padding="2,0" Background="Transparent" BorderThickness="0" Foreground="Gray" FontSize="11" Content="↑ 升序" ToolTip="切换升降序" Click="Button_ToggleSort_Click"/>
+                </StackPanel>
+            </Border>
+
+            <ListBox Grid.Row="1" x:Name="list_UnfinishedTasks" Background="Transparent" BorderThickness="0" ItemsSource="{Binding FilteredUnfinishedTasks}" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Auto" AllowDrop="True" PreviewMouseLeftButtonDown="ListBox_PreviewMouseLeftButtonDown" PreviewMouseMove="ListBox_PreviewMouseMove" Drop="ListBox_Drop" DragEnter="ListBox_DragEnter">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Setter Property="IsEnabled" Value="True"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:TranslationTask}">
+                        <Border Padding="5" BorderBrush="Gray" BorderThickness="1" CornerRadius="3" Height="52" Width="{calc:Binding '(ActualWidth - 10) less 0 ? 0 : (ActualWidth - 10)',ElementName=list_UnfinishedTasks}">
+                            <DockPanel>
+                                <ProgressBar VerticalAlignment="Bottom" Height="4" DockPanel.Dock="Bottom" Foreground="MediumPurple" BorderThickness="0" Value="{Binding Progress}" Maximum="100" Background="#1CFFFFFF"/>
+
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Set'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="设置翻译参数" Command="{Binding TransConfigCommand}">
+                                        <Button.Content>
+                                            <Viewbox Margin="4">
+                                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M928 800H508c-14.2-55.2-64.3-96-124-96-59.6 0-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32 0 17.7 14.3 32 32 32h164c14.2 55.2 64.3 96 124 96 59.6 0 109.8-40.8 124-96h420c17.7 0 32-14.3 32-32C960 814.3 945.7 800 928 800zM384 897c-35.9 0-65-29.1-65-65s29.1-65 65-65 65 29.1 65 65S419.9 897 384 897zM928 480H764c-14.2-55.2-64.3-96-124-96s-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32 0 17.7 14.3 32 32 32h420c14.2 55.2 64.3 96 124 96s109.8-40.8 124-96h164c17.7 0 32-14.3 32-32C960 494.3 945.7 480 928 480zM640 577c-35.9 0-65-29.1-65-65s29.1-65 65-65 65 29.1 65 65S675.9 577 640 577zM96 224h164c14.2 55.2 64.3 96 124 96 59.6 0 109.8-40.8 124-96h420c17.7 0 32-14.3 32-32 0-17.7-14.3-32-32-32H508c-14.2-55.2-64.3-96-124-96-59.6 0-109.8 40.8-124 96H96c-17.7 0-32 14.3-32 32C64 209.7 78.3 224 96 224zM384 127c35.9 0 65 29.1 65 65s-29.1 65-65 65-65-29.1-65-65S348.1 127 384 127z"/>
+                                            </Viewbox>
+                                        </Button.Content>
+                                    </controls:ViewButton>
+                                    <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Merge'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="重翻错误部分" Command="{Binding ReTranslateFailedCommand}">
+                                        <Button.Content>
+                                            <Viewbox Margin="3,2.5,3,3.5">
+                                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M511.12717473 65.46376948v84.25211895c199.84602618 0 362.28411157 162.43808535 362.28411152 362.28411157S710.97320093 874.28411157 511.12717473 874.28411157 148.84306315 711.84602618 148.84306315 512c0-85.93716134 31.00477979-169.1782549 85.93716137-234.22089074V387.30686393h84.25211896v-261.1815688h-271.2918231v84.25211899h134.1293734c-75.15289014 81.89305963-117.2789496 189.73577193-117.27894959 301.62258588 0 246.35319584 200.18303466 446.53623052 446.53623054 446.53623052S957.66340525 758.35319584 957.66340525 512 757.48037059 65.46376948 511.12717473 65.46376948zM642.56048033 497.84564401l-192.43183971-111.21279707c-1.68504239-1.01102544-3.70709323 0.33700849-3.70709326 2.35905939v222.42559403c0 2.02205085 2.02205085 3.03307629 3.70709326 2.35905937l192.43183971-111.21279704c1.68504239-1.01102544 1.68504239-3.70709323 0-4.71811868z"/>
+                                            </Viewbox>
+                                        </Button.Content>
+                                    </controls:ViewButton>
+                                    <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" EnableAnimation="Horizontal" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Merge'}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" ToolTip="合并" Command="{Binding MergeCommand}">
+                                        <Button.Content>
+                                            <Viewbox Margin="2.5,2.5,4,4">
+                                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M589.44 648.32v188.8h268.8V174.4h-268.8v189.76H540.8V128h365.76v757.44H540.8v-237.12zM672 528.32h131.2v-44.8H672v-94.08l-131.2 116.16 131.2 116.48zM432.96 648.32v188.8h-268.8V174.4h268.8v189.76h48.64V128H115.84v757.44h365.76v-237.12zM352 483.52H220.48v44.8H352v93.76l129.92-116.48L352 389.44z"/>
+                                            </Viewbox>
+                                        </Button.Content>
+                                    </controls:ViewButton>
+                                    <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" ToolTip="打开文件夹" Command="{Binding OpenDicCommand}">
+                                        <Button.Content>
+                                            <Viewbox Margin="4">
+                                                <Path Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type Button}}}" Data="M1171.561026 935.253333H88.746667V246.285128h1082.814359zM88.746667 88.746667h398.047179L508.849231 157.538462h-420.102564zM1171.561026 157.538462H601.796923l-30.982564-96.098462A88.221538 88.221538 0 0 0 486.793846 0H88.746667A88.746667 88.746667 0 0 0 0 88.746667v846.506666a88.746667 88.746667 0 0 0 88.746667 88.746667h1082.814359A88.746667 88.746667 0 0 0 1260.307692 935.253333V246.285128A88.746667 88.746667 0 0 0 1171.561026 157.538462"/>
+                                            </Viewbox>
+                                        </Button.Content>
+                                    </controls:ViewButton>
+                                    <controls:ViewButton Margin="0,0,2,0" Width="24" Height="24" Content="{Binding State,Converter={StaticResource StartButtonText},ConverterParameter=False}" ToolTip="{Binding State,Converter={StaticResource StartButtonText},ConverterParameter=True}" Visibility="{calc:Binding 'Opacity != 0',FalseToVisibility=Collapsed,RelativeSource={RelativeSource Mode=Self}}" IsEnabled="{Binding State,Converter={StaticResource TaskStateToEnable},ConverterParameter='Start'}" Click="Button_StartOrPause_Click"/>
+                                    <controls:ViewButton Width="24" Height="24" FontSize="16" Content="×" ToolTip="删除" Command="{Binding RemoveCommand}"/>
+                                </StackPanel>
+                                <TextBlock x:Name="tb_title" DockPanel.Dock="Top" HorizontalAlignment="Left" MaxWidth="180" Foreground="Gray" FocusVisualStyle="{x:Null}"  Text="{Binding FileName}" ToolTip="{Binding FileName}"/>
+                                <Rectangle DockPanel.Dock="Top" Margin="0,2" HorizontalAlignment="Left" MaxWidth="180" Width="{Binding ActualWidth, ElementName=tb_title}" Fill="#3CFFFFFF" Height="1"/>
+                                <TextBlock DockPanel.Dock="Left" HorizontalAlignment="Left" Width="58" Foreground="Gray" Text="{Binding Progress,StringFormat={}{0:0.00}%}"/>
+                                <TextBlock HorizontalAlignment="Left" Margin="0,0,10,0" Foreground="Gray" Text="{Binding State,Converter={StaticResource TaskStateToString}}"/>
+                                <TextBlock HorizontalAlignment="Left" Foreground="Gray" Visibility="{Binding State,Converter={StaticResource TaskStateToSpeedVisibility}}" Text="{Binding Speed,StringFormat={}{0:0.##} Tokens/s}"/>
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </Grid>
 </UserControl>

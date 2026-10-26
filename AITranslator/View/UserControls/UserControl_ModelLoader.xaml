@@ -29,7 +29,7 @@
                         <GroupBox  BorderThickness="0.1" BorderBrush="White">
                             <GroupBox.Header>
                                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-                                    <ComboBox Foreground="White" SelectionChanged="ComboBox_CommunicatorType_SelectionChanged" IsEnabled="{calc:Binding '!Communicator.ModelLoaded and !Communicator.ModelLoading and ActiveTask == null and !ManualTranslating'}" SelectedIndex="{Binding Communicator.CommunicatorType,Converter={StaticResource CommunicatorTypeToIndex},Mode=TwoWay}">
+                                    <ComboBox Foreground="White" SelectionChanged="ComboBox_CommunicatorType_SelectionChanged" IsEnabled="{calc:Binding '!Communicator.ModelLoaded and !Communicator.ModelLoading and ActiveTaskCount == 0 and !ManualTranslating'}" SelectedIndex="{Binding Communicator.CommunicatorType,Converter={StaticResource CommunicatorTypeToIndex},Mode=TwoWay}">
                                         <ComboBoxItem Content="内置加载器"/>
                                         <ComboBoxItem Content="OpenAI"/>
                                     </ComboBox>
@@ -37,7 +37,7 @@
                             </GroupBox.Header>
                             <StackPanel Margin="5,10,5,5">
                                 <control:SizeAnimationGrid x:Name="gd_OpemAI" Height="210" IsEnabled="{calc:Binding 'Communicator.CommunicatorType == vm:CommunicatorType.OpenAI'}" Visibility="{calc:Binding '!(Opacity == 0)',RelativeSource={RelativeSource Mode=Self},FalseToVisibility=Collapsed}">
-                                    <StackPanel IsEnabled="{calc:Binding 'ActiveTask == null and !ManualTranslating'}">
+                                    <StackPanel IsEnabled="{calc:Binding 'ActiveTaskCount == 0 and !ManualTranslating'}">
                                         <Grid >
                                             <Grid.RowDefinitions>
                                                 <RowDefinition/>
@@ -52,7 +52,7 @@
                                                     <ColumnDefinition/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="请求地址:" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="White"/>
-                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTask != null ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
+                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTaskCount > 0 ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
                                                     <TextBox Text="{Binding Communicator.ServerURL}" Foreground="White" InputMethod.IsInputMethodEnabled="False" VerticalAlignment="Center" CaretBrush="White" Margin="5,0" BorderThickness="0" Background="Transparent" FontSize="10"/>
                                                 </Border>
                                             </Grid>
@@ -62,7 +62,7 @@
                                                     <ColumnDefinition/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="API密钥:" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="White"/>
-                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTask != null ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
+                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTaskCount > 0 ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
                                                     <TextBox Text="{Binding Communicator.ApiKey}" Foreground="White" InputMethod.IsInputMethodEnabled="False" VerticalAlignment="Center" CaretBrush="White" Margin="5,0" BorderThickness="0" Background="Transparent" FontSize="10"/>
                                                 </Border>
                                             </Grid>
@@ -72,7 +72,7 @@
                                                     <ColumnDefinition/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="模型:" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="White"/>
-                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTask != null ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
+                                                <Border Grid.Column="1" BorderThickness="1" VerticalAlignment="Center" BorderBrush="{calc:Binding 'ActiveTaskCount > 0 ? media:Brushes.Gray : media:Brushes.White'}" Height="25" CornerRadius="12.5" >
                                                     <TextBox Text="{Binding Communicator.Model}" Foreground="White" InputMethod.IsInputMethodEnabled="False" VerticalAlignment="Center" CaretBrush="White" Margin="5,0" BorderThickness="0" Background="Transparent" FontSize="10"/>
                                                 </Border>
                                             </Grid>
@@ -178,7 +178,7 @@
                                                 </control:ViewButton>
 
 
-                                                <control:ViewButton Grid.Column="1" Height="25" Click="Button_Load_Click" IsEnabled="{calc:Binding 'ActiveTask == null and !ManualTranslating'}">
+                                                <control:ViewButton Grid.Column="1" Height="25" Click="Button_Load_Click" IsEnabled="{calc:Binding 'ActiveTaskCount == 0 and !ManualTranslating'}">
                                                     <Button.Content>
                                                         <MultiBinding Converter="{StaticResource LoadModelButtonText}" ConverterParameter="卸载模型 加载模型 取消加载">
                                                             <Binding Path="Communicator.ModelLoaded"/>
@@ -200,7 +200,7 @@
 
                             </StackPanel>
                         </GroupBox>
-                        <StackPanel Orientation="Horizontal" Height="25" Margin="0,5,0,0" Visibility="{calc:Binding 'ActiveTask == null and !ManualTranslating and !Communicator.ModelLoaded and !Communicator.ModelLoading'}">
+                        <StackPanel Orientation="Horizontal" Height="25" Margin="0,5,0,0" Visibility="{calc:Binding 'ActiveTaskCount == 0 and !ManualTranslating and !Communicator.ModelLoaded and !Communicator.ModelLoading'}">
                             <ComboBox Width="195" HorizontalAlignment="Left" Foreground="White" DisplayMemberPath="Name" SelectedItem="{Binding CurrentCommunicatorParam,RelativeSource={RelativeSource AncestorType=UserControl}}" ItemsSource="{Binding CommunicatorParams}" SelectionChanged="ComboBox_CommunicatorParams_SelectionChanged"/>
 
                             <StackPanel Margin="7,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left" DataContext="{Binding Communicator}" Cursor="Hand">

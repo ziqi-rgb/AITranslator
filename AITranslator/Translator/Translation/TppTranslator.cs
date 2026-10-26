@@ -207,26 +207,33 @@ namespace AITranslator.Translator.Translation
         }
 
         /// <summary>
-        /// 翻译结果校验，如校验不通过则会尝试重新翻译一次
+        /// 翻译结果校验，如校验不通过则分割重试（最多 3 次，逐步减半）
         /// </summary>
-        /// <param name="source">原始数据</param>
-        /// <param name="translated">翻译后数据</param>
-        /// <returns>校验是否通过</returns>
         bool ResultVerification(string source, ref string translated)
         {
             if (!Verification(source, translated, out string error))
             {
                 ViewModelManager.WriteLine($"\r\n" + source + "\r\n" + "    ⬇" + "\r\n" + translated);
-                ViewModelManager.WriteLine($"[{DateTime.Now:G}]{error}，正在尝试重新翻译...");
-                string reTranslate = Translate_Single(source, false, true);
-                if (Verification(source, translated, out error))
-                    translated = reTranslate;
-                else
+                ViewModelManager.WriteLine($"[{DateTime.Now:G}]{error}，正在尝试分割并重新翻译...");
+
+                string current = translated;
+                for (int retry = 0; retry < 3; retry++)
                 {
-                    ViewModelManager.WriteLine($"\r\n" + source + "\r\n" + "    ⬇" + "\r\n" + translated);
-                    ViewModelManager.WriteLine($"[{DateTime.Now:G}]{error},重试翻译仍未达标，记录到错误列表。");
-                    return false;
+                    current = Translate_Single(source, false, true);
+                    if (Verification(source, current, out error))
+                    {
+                        translated = current;
+                        AddHistory(source, translated);
+                        return true;
+                    }
+                    ViewModelManager.WriteLine($"[{DateTime.Now:G}]第{retry + 1}次重试仍未通过:{error}");
                 }
+
+                // 3 次重试均失败 → 保留最佳结果到错误列表
+                ViewModelManager.WriteLine($"\r\n" + source + "\r\n" + "    ⬇" + "\r\n" + current);
+                ViewModelManager.WriteLine($"[{DateTime.Now:G}]{error},多次分割重试仍未达标，记录到错误列表。");
+                translated = current;
+                return false;
             }
             AddHistory(source, translated);
             return true;

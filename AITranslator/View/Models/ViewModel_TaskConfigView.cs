@@ -1,4 +1,5 @@
 ﻿using AITranslator.Translator.Models;
+using AITranslator.Translator.Persistent;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,12 @@ namespace AITranslator.View.Models
         /// </summary>
         [ObservableProperty]
         private ObservableCollection<KeyValueStr> replaces = new ObservableCollection<KeyValueStr>();
+
+        /// <summary>
+        /// 单条文本最大字符长度，超过自动拆分为多段翻译
+        /// </summary>
+        [ObservableProperty]
+        private int maxSegmentLength = 500;
 
 
         public ViewModel_TaskConfigView() { }
@@ -82,6 +89,17 @@ namespace AITranslator.View.Models
                 vm.Replaces.Add(replace);
 
             vm.TemplateConfig = task.TemplateConfig;
+
+            // 从模板配置中读取已有的 MaxSegmentLength 值
+            if (task.TemplateConfig is not null)
+            {
+                string configPath = PublicParams.GetTemplateFilePath(TemplateType.TemplateConfig, task.TemplateConfig.Name);
+                if (File.Exists(configPath))
+                {
+                    ConfigSave_DefaultTemplate cfg = JsonPersister.Load<ConfigSave_DefaultTemplate>(configPath);
+                    vm.MaxSegmentLength = cfg.MaxSegmentLength;
+                }
+            }
 
             return vm;
         }

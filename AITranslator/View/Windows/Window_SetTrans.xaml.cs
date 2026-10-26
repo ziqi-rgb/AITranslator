@@ -1,4 +1,5 @@
 ﻿using AITranslator.Translator.Persistent;
+using AITranslator.Translator.Models;
 using AITranslator.View.Models;
 using Microsoft.Win32;
 using System;
@@ -53,6 +54,14 @@ namespace AITranslator.View.Windows
             //复制临时创建的ViewModel拷贝到Task的ViewModel中
             _vm.CopyTo(_task);
             _task.SaveConfig();
+
+            //重新加载模板参数（切换预设后 TemplateConfigParams 可能为空或过期），再应用文本拆分长度覆盖
+            if (_task.TemplateConfig is not null)
+            {
+                string templateConfigPath = PublicParams.GetTemplateFilePath(TemplateType.TemplateConfig, _task.TemplateConfig.Name);
+                _task.TemplateConfigParams = JsonPersister.Load<ConfigSave_DefaultTemplate>(templateConfigPath);
+                _task.TemplateConfigParams.MaxSegmentLength = _vm.MaxSegmentLength;
+            }
 
             Close();
         }

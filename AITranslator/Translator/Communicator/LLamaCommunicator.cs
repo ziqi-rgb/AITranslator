@@ -169,6 +169,12 @@ namespace AITranslator.Translator.Communicator
 
     internal class LLamaCommunicator : ICommunicator
     {
+        /// <summary>
+        /// 静态锁：防止多个并发任务同时调用 StatelessExecutor（非线程安全），
+        /// 对 OpenAI 远程 API 用户无影响。
+        /// </summary>
+        private static readonly object _inferenceLock = new();
+
         CancellationTokenSource _cts;
         Stopwatch sw = new Stopwatch();
         public LLamaCommunicator()
@@ -215,7 +221,11 @@ namespace AITranslator.Translator.Communicator
                     InstructScriptInput gloableClass = new InstructScriptInput() { Messages = messages };
                     string data = LLamaLoader.Script.RunAsync(gloableClass).Result.ReturnValue;
                     sw.Restart();
-                    List<string> resultText = LLamaLoader.Executor.InferAsync(data, inferenceParams, token).ToBlockingEnumerable(token).ToList();
+                    List<string> resultText;
+                    lock (_inferenceLock)
+                    {
+                        resultText = LLamaLoader.Executor.InferAsync(data, inferenceParams, token).ToBlockingEnumerable(token).ToList();
+                    }
                     sw.Stop();
                     str = string.Join(string.Empty, resultText);
                     speed = resultText.Count / (sw.ElapsedMilliseconds / 1000d);

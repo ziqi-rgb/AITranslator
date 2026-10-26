@@ -61,6 +61,12 @@ namespace AITranslator.View.Models
         [ObservableProperty]
         private int historyCount;
         /// <summary>
+        /// 单条文本最大字符长度，超过自动拆分为多段翻译
+        /// </summary>
+        [Range(typeof(int), "50", "8192", ErrorMessage = "拆分长度超出限制！")]
+        [ObservableProperty]
+        private int maxSegmentLength = 500;
+        /// <summary>
         /// 合并翻译的参数
         /// </summary>
         [ObservableProperty]
@@ -92,6 +98,7 @@ namespace AITranslator.View.Models
                 VerificationTemplate = source.VerificationTemplate,
                 CleanTemplate = source.CleanTemplate,
                 HistoryCount = source.HistoryCount,
+                MaxSegmentLength = source.MaxSegmentLength,
                 TranslatePrams_FirstMult = ViewModel_TranslatePrams.Create(source.TranslatePrams_FirstMult),
                 TranslatePrams_FirstSingle = ViewModel_TranslatePrams.Create(source.TranslatePrams_FirstSingle),
                 TranslatePrams_Retry = ViewModel_TranslatePrams.Create(source.TranslatePrams_Retry),

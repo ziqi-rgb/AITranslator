@@ -90,6 +90,22 @@ namespace AITranslator.Translator.Communicator
                             {
                                 if (string.IsNullOrWhiteSpace(json_result))
                                     json_result = "NULL";
+
+                                // 检查是否为上下文超限错误（llama.cpp server 等后端返回）
+                                try
+                                {
+                                    JObject? errObj = (JObject?)JsonConvert.DeserializeObject(json_result);
+                                    JToken? errorToken = errObj?["error"];
+                                    if (errorToken is not null && errorToken["type"]?.ToString() == "exceed_context_size_error")
+                                    {
+                                        int nPrompt = errorToken["n_prompt_tokens"]?.Value<int>() ?? 0;
+                                        int nCtx = errorToken["n_ctx"]?.Value<int>() ?? 0;
+                                        throw new KnownException($"EXCEED_CONTEXT|prompt={nPrompt}|ctx={nCtx}");
+                                    }
+                                }
+                                catch (KnownException) { throw; }
+                                catch { /* 非超限错误，走原有重试逻辑 */ }
+
                                 ViewModelManager.WriteLine($"服务回复状态错误[{Convert.ToInt32(httpResponse.StatusCode)}],返回数据为:{json_result}");
                                 tryCount++;
                                 if (tryCount >= 3)

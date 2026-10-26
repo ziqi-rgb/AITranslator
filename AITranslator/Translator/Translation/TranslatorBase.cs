@@ -392,7 +392,7 @@ namespace AITranslator.Translator.Translation
         }
 
         /// <summary>
-        /// 翻译结果校验
+        /// 翻译结果校验（内置过短检测 + .csx 脚本校验）
         /// </summary>
         /// <param name="source">原始数据</param>
         /// <param name="translated">翻译后数据</param>
@@ -400,6 +400,14 @@ namespace AITranslator.Translator.Translation
         /// <returns>校验是否通过</returns>
         internal bool Verification(string source, string translated, out string error)
         {
+            // 内置校验：输出过短（原文 > 100 字符且译文少于 25%，短文本语言间天然压缩不适用）
+            if (source.Length > 100 && translated.Length < source.Length * 0.25)
+            {
+                error = "返回结果过短，怀疑未完整翻译或拒绝回答";
+                return false;
+            }
+
+            // .csx 脚本校验
             _verificationScriptInput.Untranslated = source;
             _verificationScriptInput.Translated = translated;
             (bool, string) result = _verification.RunAsync(_verificationScriptInput).Result.ReturnValue;
@@ -430,6 +438,74 @@ namespace AITranslator.Translator.Translation
         }
 
         static string[] escapeChars = ["\r\n", "\n", "\t"];
+
+        /// <summary>
+        /// 按句子边界拆分文本——
+        /// ① 在 maxLen 范围内向前找第一个句点（跳过段长 < 20 的；分钟），段长 ≤ maxLen；
+        /// ② 找不到（单句超长）时向 start+maxLen 后找最后一个句点（最多 +200），保证句子完整；
+        /// ③ 仍找不到则硬切。
+        /// </summary>
+        internal static List<string> SplitBySentence(string text, int maxLen)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLen)
+                return new List<string> { text };
+
+            // 句子结尾标点（中日英通用）
+            char[] sentenceEndings = { '。', '！', '？', '…', '．', '.', '!', '?', '\n', '\r', '；', ';' };
+
+            const int forwardLookupLimit = 200;
+            const int minSegmentChars = 100;
+            var segments = new List<string>();
+            int start = 0;
+
+            while (start < text.Length)
+            {
+                // 剩余文本不超过限制，直接取到末尾
+                if (start + maxLen >= text.Length)
+                {
+                    segments.Add(text[start..]);
+                    break;
+                }
+
+                // ① 主策略：从 start 向前在 maxLen 内找第一个有效句点（段长 ≥ minSegmentChars）
+                int end = -1;
+                int searchPos = start;
+                int remaining = maxLen;
+                while (remaining > 0 && searchPos < start + maxLen)
+                {
+                    int found = text.IndexOfAny(sentenceEndings, searchPos, remaining);
+                    if (found < 0)
+                        break; // 没找到任何句点
+                    if (found - start + 1 >= minSegmentChars)
+                    {
+                        end = found + 1; // 找到有效句点，包含标点
+                        break;
+                    }
+                    // 跳过太短的段
+                    int skip = found - searchPos + 1;
+                    searchPos = found + 1;
+                    remaining -= skip;
+                }
+
+                if (end < 0)
+                {
+                    // ② 兜底：单句超长或无有效句点，向 start+maxLen 后找最后一个句点（最多 +200）
+                    int searchEnd = start + maxLen;
+                    int backwardLimit = Math.Min(searchEnd + forwardLookupLimit, text.Length);
+                    int backwardEnd = text.LastIndexOfAny(sentenceEndings, backwardLimit - 1, backwardLimit - start);
+                    if (backwardEnd > start)
+                        end = backwardEnd + 1; // 包含句尾标点
+                    else
+                        end = searchEnd; // ③ 仍找不到 → 硬切
+                }
+
+                segments.Add(text[start..end]);
+                start = end;
+            }
+
+            return segments;
+        }
+
         /// <summary>
         /// 多句合并翻译
         /// </summary>
@@ -462,26 +538,76 @@ namespace AITranslator.Translator.Translation
         }
 
         /// <summary>
-        /// 单句翻译
+        /// 单句翻译 — 如果文本超过 MaxSegmentLength 则自动拆分后逐段翻译再拼接
         /// </summary>
         /// <param name="value">待翻译的字符串</param>
         /// <param name="useHistory">使用历史上下文</param>
-        /// <param name="temperature">温度</param>
-        /// <param name="frequencyPenalty">频率惩罚</param>
+        /// <param name="retry">是否为重试（重试时 MaxSegmentLength 减半作为兜底）</param>
         /// <returns>翻译完成的字符串</returns>
         internal string Translate_Single(string value, bool useHistory, bool retry)
         {
-            (Dictionary<string, List<double>>, string) result = value.CalculateNewlinePositions(escapeChars);
-            Dictionary<string, List<double>> positions = result.Item1;
-            string processed_texts = result.Item2;
-            string str_result = TryTranslate(processed_texts, _example[^1].content!, useHistory, retry ? TryTranslateType.Retry : TryTranslateType.Single).InsertNewlines(positions);
-            return str_result;
+            int maxLen = _translationTask.TemplateConfigParams.MaxSegmentLength;
+            // 重试时强制拆分——避免 maxLen 仍大于文本长度导致拆分不触发
+            if (retry)
+                maxLen = Math.Max(Math.Min(maxLen / 2, value.Length * 3 / 4), 50);
+
+            // 文本较短，保持原有单次翻译逻辑
+            if (value.Length <= maxLen)
+            {
+                (Dictionary<string, List<double>>, string) result = value.CalculateNewlinePositions(escapeChars);
+                Dictionary<string, List<double>> positions = result.Item1;
+                string processed_texts = result.Item2;
+                string str_result = TryTranslate(processed_texts, _example[^1].content!, useHistory, retry ? TryTranslateType.Retry : TryTranslateType.Single).InsertNewlines(positions);
+                return str_result;
+            }
+
+            // 长文本：按句子边界拆分后逐段翻译
+            var segments = SplitBySentence(value, maxLen);
+            ViewModelManager.WriteLine($"[{DateTime.Now:G}]{(retry ? "[重试]" : "")}文本长度{value.Length}超过限制{maxLen}，拆分为{segments.Count}段翻译");
+            var translatedParts = new List<string>();
+            string accumulated = "";
+            for (int i = 0; i < segments.Count; i++)
+            {
+                string segment = segments[i];
+                (Dictionary<string, List<double>>, string) segResult = segment.CalculateNewlinePositions(escapeChars);
+                Dictionary<string, List<double>> segPositions = segResult.Item1;
+                string segProcessed = segResult.Item2;
+                string segTranslated = TryTranslate(segProcessed, _example[^1].content!, useHistory, retry ? TryTranslateType.Retry : TryTranslateType.Single, accumulated);
+                string formatted = segTranslated.InsertNewlines(segPositions);
+                accumulated += formatted;
+                ViewModelManager.WriteLine($"  [{DateTime.Now:G}]第{i + 1}/{segments.Count}段完成，原文:{segment.Length}字符 → 译文:{segTranslated.Length}字符");
+                translatedParts.Add(formatted);
+            }
+            string joined = string.Concat(translatedParts);
+            ViewModelManager.WriteLine($"[{DateTime.Now:G}]{(retry ? "[重试]" : "")}拆分翻译完成，合并后译文共{joined.Length}字符");
+            return joined;
         }
 
         internal string Translate_NoResetNewline(string value, bool useHistory, TryTranslateType type)
         {
-            string str_result = TryTranslate(value, _example[^1].content!, useHistory, type);
-            return str_result;
+            int maxLen = _translationTask.TemplateConfigParams.MaxSegmentLength;
+            if (type == TryTranslateType.Retry)
+                maxLen = Math.Max(Math.Min(maxLen / 2, value.Length * 3 / 4), 50);
+
+            if (value.Length <= maxLen)
+                return TryTranslate(value, _example[^1].content!, useHistory, type);
+
+            var segments = SplitBySentence(value, maxLen);
+            bool isRetry = type == TryTranslateType.Retry;
+            ViewModelManager.WriteLine($"[{DateTime.Now:G}]{(isRetry ? "[重试]" : "")}文本长度{value.Length}超过限制{maxLen}，拆分为{segments.Count}段翻译");
+            var translatedParts = new List<string>();
+            string accumulated = "";
+            for (int i = 0; i < segments.Count; i++)
+            {
+                string segment = segments[i];
+                string segTranslated = TryTranslate(segment, _example[^1].content!, useHistory, type, accumulated);
+                accumulated += segTranslated;
+                ViewModelManager.WriteLine($"  [{DateTime.Now:G}]第{i + 1}/{segments.Count}段完成，原文:{segment.Length}字符 → 译文:{segTranslated.Length}字符");
+                translatedParts.Add(segTranslated);
+            }
+            string joined = string.Concat(translatedParts);
+            ViewModelManager.WriteLine($"[{DateTime.Now:G}]{(isRetry ? "[重试]" : "")}拆分翻译完成，合并后译文共{joined.Length}字符");
+            return joined;
         }
 
         /// <summary>
@@ -494,11 +620,18 @@ namespace AITranslator.Translator.Translation
         /// <param name="frequencyPenalty">频率惩罚</param>
         /// <returns>翻译完成的字符串</returns>
         /// <exception cref="KnownException">出现的已知错误</exception>
-        internal string TryTranslate(string str, string prompt_with_text, bool useHistory, TryTranslateType type)
+        internal string TryTranslate(string str, string prompt_with_text, bool useHistory, TryTranslateType type, string? accumulatedContext = null, int _splitDepth = 0)
         {
             ExampleDialogue[] headers = _example[..^1];
-            ExampleDialogue[] histories = useHistory ? _history.ToArray() : Array.Empty<ExampleDialogue>();
+            var historyList = (useHistory ? _history.ToList() : new List<ExampleDialogue>());
 
+            // 拆分翻译时传递前段累计译文作为上下文
+            if (!string.IsNullOrEmpty(accumulatedContext))
+            {
+                historyList.Add(new ExampleDialogue("user", "前文翻译结果"));
+                historyList.Add(new ExampleDialogue("assistant", accumulatedContext));
+            }
+            ExampleDialogue[] histories = historyList.ToArray();
 
             ConfigSave_TranslatePrams? param = GetTranslatePrams(type);
             if (param is null)
@@ -512,9 +645,50 @@ namespace AITranslator.Translator.Translation
             postData.presence_penalty = param.PresencePenalty;
             postData.stop = param.Stops.ToArray();
 
-            string str_result = _communicator!.Translate(postData, headers, histories, $"{prompt_with_text}{str}", out double speed);
-            _translationTask.Speed = speed;
-            return str_result;
+            try
+            {
+                string str_result = _communicator!.Translate(postData, headers, histories, $"{prompt_with_text}{str}", out double speed);
+                _translationTask.Speed = speed;
+                return str_result;
+            }
+            catch (KnownException ex) when (ex.Message.StartsWith("EXCEED_CONTEXT|"))
+            {
+                const int MaxSplitDepth = 3;
+                if (_splitDepth >= MaxSplitDepth || str.Length <= 1)
+                    throw; // 已达最大拆分深度或文本无法再拆分，向上抛出
+
+                // 解析 prompt token 和 context 上限
+                int prompt = 0, ctx = 0;
+                foreach (var segment in ex.Message.Split('|'))
+                {
+                    if (segment.StartsWith("prompt=")) int.TryParse(segment.AsSpan(7), out prompt);
+                    else if (segment.StartsWith("ctx=")) int.TryParse(segment.AsSpan(4), out ctx);
+                }
+
+                if (prompt <= 0 || ctx <= 0)
+                    throw; // 无法解析，按普通错误处理
+
+                // 按 token 比例换算字符拆分上限（安全系数 0.85）
+                double ratio = (double)ctx / prompt * 0.85;
+                int maxChars = Math.Max(50, (int)(str.Length * ratio));
+
+                ViewModelManager.WriteLine($"[{DateTime.Now:G}][自动拆分] 请求{prompt}tokens 超过上下文{ctx}tokens，将文本({str.Length}字符)按~{maxChars}字符/段拆分翻译");
+
+                var segments = SplitBySentence(str, maxChars);
+                var translatedParts = new List<string>();
+                string accumulated = accumulatedContext ?? "";
+
+                for (int i = 0; i < segments.Count; i++)
+                {
+                    string segTranslated = TryTranslate(segments[i], prompt_with_text, false, type, accumulated, _splitDepth + 1);
+                    accumulated += segTranslated;
+                    ViewModelManager.WriteLine($"  [{DateTime.Now:G}]拆分第{i + 1}/{segments.Count}段完成");
+                    translatedParts.Add(segTranslated);
+                }
+
+                ViewModelManager.WriteLine($"[{DateTime.Now:G}][自动拆分] 全部{segments.Count}段翻译完成");
+                return string.Concat(translatedParts);
+            }
         }
 
         ConfigSave_TranslatePrams? GetTranslatePrams(TryTranslateType type)
